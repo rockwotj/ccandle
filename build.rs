@@ -29,6 +29,11 @@ const TRAILER: &'static str = "
 ";
 
 fn main() {
+    eprintln!("=== START CCANDLE ENV VARS ===");
+    for (k, v) in env::vars() {
+        eprintln!("{k}={v}")
+    }
+    eprintln!("=== END CCANDLE ENV VARS ===");
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut config = Config::default();
     config.header = Some(HEADER.to_owned());
