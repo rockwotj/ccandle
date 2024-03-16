@@ -45,8 +45,8 @@ pub unsafe extern "C" fn ccandle_delete_model(_: Box<Model>) {}
 /// An unowned string in Rust. Rust does not try to delete this data.
 #[repr(C)]
 pub struct UnownedString {
-    data: *const u8,
-    length: usize,
+    pub data: *const u8,
+    pub length: usize,
 }
 
 impl UnownedString {
@@ -62,9 +62,19 @@ impl UnownedString {
 /// An owned string in Rust. This object should be deleted using `ccandle_delete_owned_string`.
 #[repr(C)]
 pub struct OwnedString {
-    data: *mut u8,
-    length: usize,
-    capacity: usize,
+    pub data: *mut u8,
+    pub length: usize,
+    pub capacity: usize,
+}
+
+impl OwnedString {
+    pub fn into_string(mut self) -> String {
+        let s = unsafe { String::from_raw_parts(self.data, self.length, self.capacity) };
+        self.data = ptr::null_mut();
+        self.length = 0;
+        self.capacity = 0;
+        s
+    }
 }
 
 /// Delete an OwnedString using the Rust allocator.
@@ -84,16 +94,6 @@ impl From<String> for OwnedString {
     }
 }
 
-impl Into<String> for OwnedString {
-    fn into(mut self) -> String {
-        let mut raw = ptr::null_mut();
-        mem::swap(&mut self.data, &mut raw);
-        self.length = 0;
-        self.capacity = 0;
-        unsafe { String::from_raw_parts(raw, self.length, self.capacity) }
-    }
-}
-
 impl Drop for OwnedString {
     fn drop(&mut self) {
         if self.data.is_null() {
@@ -102,13 +102,16 @@ impl Drop for OwnedString {
         unsafe {
             Vec::from_raw_parts(self.data, self.length, self.capacity);
         }
+        self.data = ptr::null_mut();
+        self.length = 0;
+        self.capacity = 0;
     }
 }
 
 /// Run model
 #[no_mangle]
 pub unsafe extern "C" fn ccandle_run_model(
-    mut model: Box<Model>,
+    model: &mut Model,
     prompt: UnownedString,
     max_tokens: usize,
 ) -> Option<Box<OwnedString>> {
@@ -116,9 +119,11 @@ pub unsafe extern "C" fn ccandle_run_model(
         Ok(s) => s,
         Err(_) => return None,
     };
-    let response = match model.as_mut() {
+    eprintln!("prompt: {}", prompt.escape_default());
+    let response = match model {
         Model::Mistral(m) => m.run(prompt, max_tokens),
     };
+    eprintln!("response: {}", response.as_ref().unwrap().escape_default());
     match response {
         Ok(s) => Some(Box::new(OwnedString::from(s))),
         Err(_) => None,

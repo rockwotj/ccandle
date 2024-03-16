@@ -18,10 +18,8 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::LogitsProcessor;
 use candle_transformers::models::mistral::{Config, Model};
-use hf_hub::{
-    api::sync::{Api, ApiError},
-    Repo, RepoType,
-};
+use hf_hub::api::sync::ApiBuilder;
+use hf_hub::{api::sync::ApiError, Repo, RepoType};
 use tokenizers::{tokenizer, Tokenizer};
 
 pub struct TextGeneration {
@@ -35,7 +33,7 @@ pub struct TextGeneration {
 
 impl TextGeneration {
     pub fn load_from_hugging_face() -> Result<Self> {
-        let api = Api::new()?;
+        let api = ApiBuilder::new().with_progress(true).build()?;
         let repo = api.repo(Repo::with_revision(
             "mistralai/Mistral-7B-v0.1".to_string(),
             RepoType::Model,
@@ -133,7 +131,7 @@ impl TextGeneration {
 }
 
 /// Loads the safetensors files for a model from the hub based on a json index file.
-pub fn hub_load_safetensors(
+fn hub_load_safetensors(
     repo: &hf_hub::api::sync::ApiRepo,
     json_file: &str,
 ) -> Result<Vec<std::path::PathBuf>> {
